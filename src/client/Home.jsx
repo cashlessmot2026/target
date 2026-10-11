@@ -6,9 +6,6 @@ import { useGeo, useOrientation, requestOrientationPermission } from '../lib/sen
 import { audio } from '../lib/sound'
 const ARView = lazy(() => import('./ARView'))
 
-// iOS exige un toque para dar permiso de brújula; Android/Chrome puede arrancar directo
-const NEEDS_TAP = typeof window.DeviceOrientationEvent?.requestPermission === 'function'
-
 /** Rutas del cliente:  #/e/<empresa>  → juego de una empresa  ·  #/play/<campaña> → una promo concreta */
 function parseRoute(hash) {
   const m = hash.match(/^#\/(e|play)\/([^/?]+)/)
@@ -32,11 +29,14 @@ export default function Home({ hash }) {
     loadData().then(setData).catch((e) => setLoadError(e.message))
   }, [])
 
-  // El audio solo se desbloquea con un toque: lo hacemos en el primero que ocurra
+  // Audio y brújula solo se desbloquean con un toque: lo hacemos en el primero que ocurra
   useEffect(() => {
-    const unlock = () => audio()
-    window.addEventListener('pointerdown', unlock, { once: true })
-    return () => window.removeEventListener('pointerdown', unlock)
+    const unlock = () => {
+      audio()
+      requestOrientationPermission()
+    }
+    window.addEventListener('click', unlock, { once: true })
+    return () => window.removeEventListener('click', unlock)
   }, [])
 
   const companies = useMemo(() => Object.fromEntries((data?.companies || []).map((c) => [c.id, c])), [data])
@@ -63,9 +63,9 @@ export default function Home({ hash }) {
     if (route?.kind === 'play') setActiveId(route.key)
   }, [route])
 
-  // Links directos: arrancar solos (en iOS espera el toque de "Jugar")
+  // Links directos: cámara y GPS arrancan solos; brújula y sonido se activan con el primer toque
   useEffect(() => {
-    if (route && data && !started && !NEEDS_TAP) start()
+    if (route && data && !started) setStarted(true)
   }, [route, data])
 
   // Link de empresa: en cuanto haya GPS, ir directo a su promo más cercana (solo la primera vez)

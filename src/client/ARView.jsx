@@ -6,6 +6,7 @@ import Landing3D from './Landing3D'
 import { track } from '../lib/track'
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+const needsCompassTap = typeof window.DeviceOrientationEvent?.requestPermission === 'function'
 const deg = THREE.MathUtils.degToRad
 
 export default function ARView({ campaign, company, geo, orient, sim, onExit, onSaved }) {
@@ -237,6 +238,7 @@ export default function ARView({ campaign, company, geo, orient, sim, onExit, on
   let hint = 'Sigue la flecha'
   if (!pos) hint = sim ? 'Iniciando simulador…' : 'Buscando señal GPS…'
   else if (arrived) hint = '¡Llegaste! Toca el premio para capturarlo'
+  else if (!o.available && !sim && needsCompassTap) hint = '👆 Toca la pantalla para activar la brújula'
   else if (!o.available && !sim) hint = `Camina hacia el ${cardinal(brg)} (brújula no disponible)`
   else if (Math.abs(rel) < 20) hint = '¡Vas bien, sigue derecho!'
   else if (Math.abs(rel) > 150) hint = 'Date la vuelta'
