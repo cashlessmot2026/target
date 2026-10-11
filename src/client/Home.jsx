@@ -1,11 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { loadData, loadDraft, isLive, getWallet, removeFromWallet } from '../lib/data'
+import { loadData, isLive, getWallet, removeFromWallet } from '../lib/data'
+import { SIM, track, trackImpression } from '../lib/track'
 import { distance, fmtDist, offset } from '../lib/geo'
 import { useGeo, useOrientation, requestOrientationPermission } from '../lib/sensors'
 import { audio } from '../lib/sound'
 const ARView = lazy(() => import('./ARView'))
-
-const SIM = new URLSearchParams(location.search).has('sim')
 
 export default function Home({ hash }) {
   const [data, setData] = useState(null)
@@ -19,8 +18,6 @@ export default function Home({ hash }) {
   const taps = useRef([])
 
   useEffect(() => {
-    const draft = SIM ? loadDraft() : null
-    if (draft) return setData(draft)
     loadData().then(setData).catch((e) => setLoadError(e.message))
   }, [])
 
@@ -33,14 +30,22 @@ export default function Home({ hash }) {
   const companies = useMemo(() => Object.fromEntries((data?.companies || []).map((c) => [c.id, c])), [data])
 
   const list = useMemo(() => {
-    const live = (data?.campaigns || []).filter((c) => isLive(c))
+    const live = (data?.campaigns || []).filter((c) => SIM || isLive(c))
     return live
       .map((c) => ({ ...c, dist: geo.pos ? distance(geo.pos, c) : null }))
       .sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity))
   }, [data, geo.pos])
 
   // Objeto estable (no la copia con `dist`) para no reconstruir la escena 3D en cada lectura GPS
-  const active = useMemo(() => data?.campaigns.find((c) => c.id === activeId && isLive(c)), [data, activeId])
+  const active = useMemo(() => data?.campaigns.find((c) => c.id === activeId && (SIM || isLive(c))), [data, activeId])
+
+  // Analítica: impresión cuando la campaña aparece en la lista; apertura al entrar en AR
+  useEffect(() => {
+    if (started && geo.pos) list.forEach((c) => trackImpression(c.id))
+  }, [started, list.length, !!geo.pos])
+  useEffect(() => {
+    if (started && active) track(active.id, 'open', geo.pos ? Math.round(distance(geo.pos, active)) : null)
+  }, [started, active?.id])
 
   // Simulador: aparecer a 60 m al sur del objetivo
   useEffect(() => {
@@ -145,6 +150,7 @@ export default function Home({ hash }) {
                     <small className="muted">{w.companyName}</small>
                     <strong>{w.title}</strong>
                     {w.discount && <span>{w.discount}</span>}
+                    {w.folio && w.folio !== w.code && <small className="muted">Folio {w.folio}</small>}
                   </div>
                   <code>{w.code}</code>
                   <button className="link" onClick={() => setWallet(removeFromWallet(w.campaignId))}>Quitar</button>

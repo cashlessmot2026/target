@@ -1,39 +1,61 @@
-export const DATA_URL = import.meta.env.VITE_DATA_URL || `${import.meta.env.BASE_URL}campaigns.json`
-export const DRAFT_KEY = 'geoads_admin_draft'
+import { supabase } from './supabase'
 
-export const emptyData = () => ({ version: 0, updatedAt: null, companies: [], campaigns: [] })
+// ---------- Mapeo BD (snake_case) <-> app (camelCase) ----------
+export const fromDbCampaign = (r) => ({
+  id: r.id,
+  companyId: r.company_id,
+  title: r.title,
+  subtitle: r.subtitle,
+  type: r.type,
+  discount: r.discount,
+  code: r.code,
+  couponMode: r.coupon_mode,
+  maxClaims: r.max_claims,
+  description: r.description,
+  videoUrl: r.video_url,
+  ctaText: r.cta_text,
+  ctaUrl: r.cta_url,
+  soundUrl: r.sound_url,
+  lat: Number(r.lat),
+  lng: Number(r.lng),
+  radius: r.radius,
+  active: r.active,
+  startsAt: r.starts_at || '',
+  endsAt: r.ends_at || '',
+})
 
-export function normalize(d) {
-  return {
-    ...emptyData(),
-    ...d,
-    companies: Array.isArray(d?.companies) ? d.companies : [],
-    campaigns: (Array.isArray(d?.campaigns) ? d.campaigns : []).map((c) => ({
-      radius: 20,
-      type: 'coupon',
-      active: true,
-      ...c,
-      lat: Number(c.lat),
-      lng: Number(c.lng),
-    })),
-  }
-}
+export const toDbCampaign = (c) => ({
+  id: c.id,
+  company_id: c.companyId,
+  title: c.title,
+  subtitle: c.subtitle,
+  type: c.type,
+  discount: c.discount,
+  code: c.code,
+  coupon_mode: c.couponMode,
+  max_claims: c.maxClaims ? Number(c.maxClaims) : null,
+  description: c.description,
+  video_url: c.videoUrl,
+  cta_text: c.ctaText,
+  cta_url: c.ctaUrl,
+  sound_url: c.soundUrl,
+  lat: Number(c.lat),
+  lng: Number(c.lng),
+  radius: Number(c.radius) || 20,
+  active: !!c.active,
+  starts_at: c.startsAt || null,
+  ends_at: c.endsAt || null,
+})
 
+/** Empresas y campañas visibles para quien consulta (público: solo activas; admin: las suyas). */
 export async function loadData() {
-  const sep = DATA_URL.includes('?') ? '&' : '?'
-  const res = await fetch(`${DATA_URL}${sep}t=${Date.now()}`, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`No se pudo cargar ${DATA_URL} (${res.status})`)
-  return normalize(await res.json())
-}
-
-/** Datos del borrador del admin (solo para el modo simulador ?sim). */
-export function loadDraft() {
-  try {
-    const d = JSON.parse(localStorage.getItem(DRAFT_KEY))
-    return d ? normalize(d) : null
-  } catch {
-    return null
-  }
+  const [co, ca] = await Promise.all([
+    supabase.from('geo_companies').select('*').order('name'),
+    supabase.from('geo_campaigns').select('*').order('created_at'),
+  ])
+  if (co.error) throw co.error
+  if (ca.error) throw ca.error
+  return { companies: co.data, campaigns: ca.data.map(fromDbCampaign) }
 }
 
 export function isLive(c, now = new Date()) {
@@ -43,6 +65,21 @@ export function isLive(c, now = new Date()) {
   return true
 }
 
+// ---------- Dispositivo anónimo ----------
+export function deviceId() {
+  try {
+    let id = localStorage.getItem('geoads_device')
+    if (!id) {
+      id = crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+      localStorage.setItem('geoads_device', id)
+    }
+    return id
+  } catch {
+    return 'anon-device'
+  }
+}
+
+// ---------- Billetera local ----------
 const WALLET_KEY = 'geoads_wallet'
 
 export function getWallet() {

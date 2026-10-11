@@ -223,3 +223,31 @@ hr { border: 0; border-top: 1px solid var(--line); width: 100%; }
   .grid3 { grid-template-columns: 1fr 1fr; }
   .grid3 > :last-child { grid-column: 1 / -1; }
 }
+
+/* ---------- Supabase: premios, login, estadísticas ---------- */
+.l-error { color: #ff9aac; font-weight: 700; margin: 10px 0; }
+.l-note { display: block; margin-top: 4px; }
+.l-saved { color: var(--ok); font-weight: 700; font-size: 14px; }
+.l-code.loading { cursor: default; opacity: 0.7; }
+.auth { max-width: 380px; display: flex; flex-direction: column; gap: 14px; padding-top: 60px; }
+.auth h1 { margin: 0; }
+.auth .link { align-self: flex-start; padding: 0; }
+.notice.big { font-size: 17px; font-weight: 700; padding: 16px; }
+.tabs.scroll { overflow-x: auto; }
+.tabs.scroll button { flex: 1 0 auto; white-space: nowrap; }
+.sticky-actions { position: sticky; top: 58px; z-index: 900; background: var(--bg); padding: 6px 0; }
+.funnel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.funnel-step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
+.funnel-step strong { font-size: 24px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table.stats { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.stats th, table.stats td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.stats th:first-child, table.stats td:first-child { text-align: left; }
+table.stats th { color: var(--muted); font-weight: 600; background: var(--panel); }
+table.stats tr.off td { opacity: 0.55; }
+table.stats tr.total td { font-weight: 800; border-bottom: 0; }
+.redeem-box { display: flex; flex-direction: column; gap: 10px; background: var(--panel); padding: 14px; border-radius: 14px; border: 1px solid var(--line); }
+.redeem-box input { font-size: 20px; font-family: ui-monospace, Consolas, monospace; letter-spacing: 2px; text-align: center; }
+.user-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--panel); border-radius: 12px; border: 1px solid var(--line); }
+.user-row > div { display: flex; flex-direction: column; min-width: 0; }
+@media (max-width: 480px) { .funnel { grid-template-columns: repeat(2, 1fr); } }

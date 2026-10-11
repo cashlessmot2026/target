@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { angleDiff, bearing, cardinal, distance, fmtDist, offset } from '../lib/geo'
 import { blip, capture, fanfare, playUrl } from '../lib/sound'
 import Landing3D from './Landing3D'
+import { track } from '../lib/track'
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const deg = THREE.MathUtils.degToRad
@@ -58,12 +59,13 @@ export default function ARView({ campaign, company, geo, orient, sim, onExit, on
     state.current.arrived = true
     state.current.arrivedAt = performance.now()
     setArrived(true)
+    track(campaign.id, 'arrive', Math.round(dist))
     if (soundOn) {
       fanfare()
       playUrl(campaign.soundUrl)
     }
     navigator.vibrate?.([120, 60, 120, 60, 300])
-  }, [dist, radius, campaign.soundUrl, soundOn])
+  }, [dist, radius, campaign.id, campaign.soundUrl, soundOn])
 
   // Radar sonoro: más rápido y agudo mientras más cerca
   useEffect(() => {
@@ -224,6 +226,7 @@ export default function ARView({ campaign, company, geo, orient, sim, onExit, on
     if (hit || performance.now() - state.current.arrivedAt > 1500) {
       if (soundOn) capture()
       navigator.vibrate?.(60)
+      track(campaign.id, 'capture')
       setCaptured(true)
     }
   }
