@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
-import { loadData, fromDbCampaign } from '../lib/data'
+import { loadData, fromDbCampaign, slugify } from '../lib/data'
 import { Login, NoAccess } from './Auth'
 import CampaignEditor, { newCampaign } from './CampaignEditor'
 import Stats from './Stats'
@@ -66,7 +66,7 @@ function Panel({ me, email }) {
   async function addCompany() {
     const name = prompt('Nombre de la nueva empresa')
     if (!name?.trim()) return
-    const { data, error } = await supabase.from('geo_companies').insert({ name: name.trim() }).select().single()
+    const { data, error } = await supabase.from('geo_companies').insert({ name: name.trim(), slug: `${slugify(name)}-${Math.random().toString(36).slice(2, 5)}` }).select().single()
     if (error) return setMsg({ ok: false, text: errMsg(error) })
     setCompanies((cs) => [...cs, data].sort((a, b) => a.name.localeCompare(b.name)))
     setCompanyId(data.id)

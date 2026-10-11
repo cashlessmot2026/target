@@ -65,6 +65,20 @@ export function isLive(c, now = new Date()) {
   return true
 }
 
+/** "Café Demo!" → "cafe-demo" (para links de empresa) */
+export const slugify = (s) =>
+  String(s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+
+/** Link público del juego de una empresa. */
+export const gameLink = (company) =>
+  `${location.origin}${location.pathname}#/e/${encodeURIComponent(company.slug || company.id)}`
+
 // ---------- Dispositivo anónimo ----------
 export function deviceId() {
   try {

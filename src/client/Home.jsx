@@ -6,6 +6,15 @@ import { useGeo, useOrientation, requestOrientationPermission } from '../lib/sen
 import { audio } from '../lib/sound'
 const ARView = lazy(() => import('./ARView'))
 
+// iOS exige un toque para dar permiso de brújula; Android/Chrome puede arrancar directo
+const NEEDS_TAP = typeof window.DeviceOrientationEvent?.requestPermission === 'function'
+
+/** Rutas del cliente:  #/e/<empresa>  → juego de una empresa  ·  #/play/<campaña> → una promo concreta */
+function parseRoute(hash) {
+  const m = hash.match(/^#\/(e|play)\/([^/?]+)/)
+  return m ? { kind: m[1], key: decodeURIComponent(m[2]) } : null
+}
+
 export default function Home({ hash }) {
   const [data, setData] = useState(null)
   const [loadError, setLoadError] = useState(null)
@@ -16,28 +25,56 @@ export default function Home({ hash }) {
   const geo = useGeo(started, SIM)
   const orient = useOrientation(started)
   const taps = useRef([])
+  const autoPicked = useRef(false)
+  const route = useMemo(() => parseRoute(hash), [hash])
 
   useEffect(() => {
     loadData().then(setData).catch((e) => setLoadError(e.message))
   }, [])
 
-  // Enlace directo: #/play/<id> (útil para QR o para probar desde el admin)
+  // El audio solo se desbloquea con un toque: lo hacemos en el primero que ocurra
   useEffect(() => {
-    const m = hash.match(/^#\/play\/(.+)$/)
-    if (m) setActiveId(decodeURIComponent(m[1]))
-  }, [hash])
+    const unlock = () => audio()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    return () => window.removeEventListener('pointerdown', unlock)
+  }, [])
 
   const companies = useMemo(() => Object.fromEntries((data?.companies || []).map((c) => [c.id, c])), [data])
 
+  // Empresa del link (#/e/<slug o id>)
+  const brand = useMemo(() => {
+    if (route?.kind !== 'e' || !data) return null
+    const k = route.key.toLowerCase()
+    return data.companies.find((c) => c.slug === k || c.id === route.key) || false
+  }, [route, data])
+
   const list = useMemo(() => {
-    const live = (data?.campaigns || []).filter((c) => SIM || isLive(c))
+    const live = (data?.campaigns || []).filter((c) => (SIM || isLive(c)) && (!brand || c.companyId === brand.id))
     return live
       .map((c) => ({ ...c, dist: geo.pos ? distance(geo.pos, c) : null }))
       .sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity))
-  }, [data, geo.pos])
+  }, [data, geo.pos, brand])
 
   // Objeto estable (no la copia con `dist`) para no reconstruir la escena 3D en cada lectura GPS
   const active = useMemo(() => data?.campaigns.find((c) => c.id === activeId && (SIM || isLive(c))), [data, activeId])
+
+  // Link de campaña: #/play/<id>
+  useEffect(() => {
+    if (route?.kind === 'play') setActiveId(route.key)
+  }, [route])
+
+  // Links directos: arrancar solos (en iOS espera el toque de "Jugar")
+  useEffect(() => {
+    if (route && data && !started && !NEEDS_TAP) start()
+  }, [route, data])
+
+  // Link de empresa: en cuanto haya GPS, ir directo a su promo más cercana (solo la primera vez)
+  useEffect(() => {
+    if (!brand || !started || activeId || autoPicked.current || !list.length) return
+    if (!geo.pos && !SIM) return
+    autoPicked.current = true
+    setActiveId(list[0].id)
+  }, [brand, started, activeId, list, geo.pos])
 
   // Analítica: impresión cuando la campaña aparece en la lista; apertura al entrar en AR
   useEffect(() => {
@@ -69,46 +106,64 @@ export default function Home({ hash }) {
 
   function closeAR() {
     setActiveId(null)
-    if (location.hash.startsWith('#/play/')) history.replaceState(null, '', location.pathname + location.search)
+    if (route?.kind === 'play') history.replaceState(null, '', location.pathname + location.search)
   }
 
   if (started && active) {
     return (
       <Suspense fallback={<div className="ar center muted">Abriendo cámara…</div>}>
-      <ARView
-        campaign={active}
-        company={companies[active.companyId]}
-        geo={geo}
-        orient={orient}
-        sim={SIM}
-        onExit={closeAR}
-        onSaved={() => setWallet(getWallet())}
-      />
+        <ARView
+          campaign={active}
+          company={companies[active.companyId]}
+          geo={geo}
+          orient={orient}
+          sim={SIM}
+          onExit={closeAR}
+          onSaved={() => setWallet(getWallet())}
+        />
       </Suspense>
     )
   }
 
+  const color = brand?.color
+  const waitingAuto = brand && started && !autoPicked.current && list.length > 0
+
   return (
-    <div className="home">
+    <div className="home" style={color ? { '--accent': color } : undefined}>
       <header className="home-head">
-        <button className="logo" onClick={onLogoTap} aria-label="GeoAds">
-          <img src="./icon.svg" alt="" />
-          <span>GeoAds<b>AR</b></span>
-        </button>
+        {brand ? (
+          <div className="brand-head">
+            <div className="ci-logo" style={{ '--c': color }}>{brand.logo ? <img src={brand.logo} alt="" /> : brand.name[0]}</div>
+            <strong>{brand.name}</strong>
+          </div>
+        ) : (
+          <button className="logo" onClick={onLogoTap} aria-label="GeoAds">
+            <img src="./icon.svg" alt="" />
+            <span>GeoAds<b>AR</b></span>
+          </button>
+        )}
         {SIM && <span className="pill warn">Simulador</span>}
       </header>
 
+      {brand === false && <p className="error center-text">Este link no corresponde a ninguna empresa activa.</p>}
+
       {!started ? (
         <section className="hero">
-          <div className="hero-orb" />
-          <h1>Promociones ocultas a tu alrededor</h1>
+          {brand?.logo ? <img className="hero-logo" src={brand.logo} alt="" /> : <div className="hero-orb" />}
+          <h1>{brand ? `¡Encuentra el premio de ${brand.name}!` : 'Promociones ocultas a tu alrededor'}</h1>
           <p className="muted">
             Camina, apunta tu cámara y sigue la flecha. Cuando llegues al punto exacto se revelará un premio en 3D.
           </p>
           <button className="btn primary big" onClick={start} disabled={!data && !loadError}>
-            {data || loadError ? 'Comenzar exploración' : 'Cargando…'}
+            {!data && !loadError ? 'Cargando…' : route ? '▶ Jugar' : 'Comenzar exploración'}
           </button>
           <p className="tiny muted">Necesitamos tu ubicación, cámara y brújula. No guardamos ningún dato personal.</p>
+        </section>
+      ) : waitingAuto ? (
+        <section className="hero">
+          <div className="hero-orb" />
+          <h1>Buscando tu ubicación…</h1>
+          <p className="muted">{geo.error || 'Sal a un lugar abierto para mejorar la señal GPS.'}</p>
         </section>
       ) : (
         <>
