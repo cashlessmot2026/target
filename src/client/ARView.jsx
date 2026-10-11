@@ -257,7 +257,7 @@ export default function ARView({ campaign, company, geo, orient, sim, onExit, on
 
   return (
     <div className="ar" onClick={onScreenTap}>
-      <video ref={videoRef} className="ar-video" playsInline muted autoPlay />
+      <video ref={videoRef} className="ar-video" playsInline muted autoPlay onPlaying={(e) => e.currentTarget.classList.add('on')} />
       {camError && <div className="ar-nocam">{camError}</div>}
       <canvas ref={canvasRef} className="ar-canvas" />
 
