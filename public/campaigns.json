@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-11T00:00:00.000Z",
+  "companies": [
+    { "id": "demo", "name": "Café Demo", "color": "#ff9f1c", "logo": "" }
+  ],
+  "campaigns": [
+    {
+      "id": "demo1",
+      "companyId": "demo",
+      "title": "Café gratis",
+      "subtitle": "¡Encontraste el tesoro!",
+      "type": "coupon",
+      "discount": "2x1",
+      "code": "GEOCAFE",
+      "description": "Presenta este código en caja. Válido hoy.",
+      "videoUrl": "",
+      "ctaText": "Cómo llegar a la tienda",
+      "ctaUrl": "",
+      "soundUrl": "",
+      "lat": 19.4326,
+      "lng": -99.1332,
+      "radius": 20,
+      "active": true,
+      "startsAt": "",
+      "endsAt": ""
+    }
+  ]
+}
